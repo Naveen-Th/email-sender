@@ -17,7 +17,7 @@ const allowedOrigins = [
 
   // Production 
   'https://yourdomain.com',
-  'https://www.yourdomain.com'
+  'https://raremindswebsite.netlify.app'
 ];
 const corsOptions = {
   origin: (origin, callback) => {
