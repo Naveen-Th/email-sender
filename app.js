@@ -11,11 +11,26 @@ const __dirname = path.dirname(__filename);
 
 const app = express();
 
-// Configure CORS with specific options
+const allowedOrigins = [
+  // Development
+  'http://localhost:5173',  
+
+  // Production 
+  'https://yourdomain.com',
+  'https://www.yourdomain.com'
+];
 const corsOptions = {
-  origin: ['http://localhost:5173', 'http://localhost:3000'], // Add your frontend URL here
-  methods: ['GET', 'POST'],
-  credentials: true
+  origin: (origin, callback) => {
+    // Allow requests with no origin (e.g., Postman, mobile apps, curl)
+    if (!origin || allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(new Error('Blocked by CORS'));
+    }
+  },
+  methods: ['GET', 'POST'], 
+  credentials: true, 
+  optionsSuccessStatus: 200 
 };
 
 app.use(cors(corsOptions));
