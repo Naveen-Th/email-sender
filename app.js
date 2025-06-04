@@ -23,7 +23,7 @@ const transporter = nodemailer.createTransport({
 });
 
 // Email sending endpoint
-app.post('/send-email', async (req, res) => {
+app.post('/send-pdf', async (req, res) => {
   const { name, email, phone, resourceTitle, pdfUrl } = req.body;
 
   try {
