@@ -3,46 +3,16 @@ import express from 'express';
 import nodemailer from 'nodemailer';
 import cors from 'cors';
 import path from 'path';
-import fs from 'fs';
-import { fileURLToPath } from 'url';
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
 
 const app = express();
 
-const allowedOrigins = [
-  // Development
-  'http://localhost:5173',  
-
-  // Production 
-  'https://yourdomain.com',
-  'https://raremindswebsite.netlify.app'
-];
-const corsOptions = {
-  origin: (origin, callback) => {
-    // Allow requests with no origin (e.g., Postman, mobile apps, curl)
-    if (!origin || allowedOrigins.includes(origin)) {
-      callback(null, true);
-    } else {
-      callback(new Error('Blocked by CORS'));
-    }
-  },
-  methods: ['GET', 'POST'], 
-  credentials: true, 
-  optionsSuccessStatus: 200 
-};
-
-app.use(cors(corsOptions));
+// Middleware
+app.use(cors());
 app.use(express.json());
 
-// Serve static files from the public directory
-app.use('/public', express.static(path.join(__dirname, 'public')));
-
+// Create nodemailer transporter
 const transporter = nodemailer.createTransport({
-  host: 'smtp.gmail.com',
-  port: 587,
-  secure: false,
+  service: 'gmail',
   auth: {
     user: process.env.EMAIL,
     pass: process.env.EMAIL_PASSWORD
@@ -52,65 +22,51 @@ const transporter = nodemailer.createTransport({
   }
 });
 
-app.post('/send-pdf', async (req, res) => {
-  console.log('Received request:', req.body);
-  console.log('Environment variables:', {
-    email: process.env.EMAIL,
-    hasPassword: !!process.env.EMAIL_PASSWORD
-  });
-  const { email, pdfUrl, name } = req.body;
-
-  if (!email || !pdfUrl || !name) {
-    return res.status(400).json({ error: 'Missing required fields' });
-  }
-
-  // Clean up the PDF URL by removing any leading slash
-  const cleanPdfUrl = pdfUrl.replace(/^\//, '');
-  const pdfPath = path.join(__dirname, 'public', cleanPdfUrl);
-  console.log('PDF path:', pdfPath);
-
-  // Verify if file exists
-  if (!fs.existsSync(pdfPath)) {
-    console.error('PDF file not found:', pdfPath);
-    return res.status(404).json({ error: 'PDF file not found' });
-  }
-
-  const mailOptions = {
-    from: process.env.EMAIL,
-    to: email,
-    subject: 'Your Requested PDF Document',
-    text: `Dear ${name},\n\nThank you for your interest. Here's your requested PDF document.\n\nBest regards,\nYour Team`,
-    attachments: [
-      {
-        filename: path.basename(pdfPath),
-        path: pdfPath
-      }
-    ]
-  };
+// Email sending endpoint
+app.post('/send-email', async (req, res) => {
+  const { name, email, phone, resourceTitle, pdfUrl } = req.body;
 
   try {
-    console.log('Mail options:', JSON.stringify(mailOptions, null, 2));
-    console.log('Attempting to send email with nodemailer...');
-    const info = await transporter.sendMail(mailOptions);
-    console.log('Email sent successfully. Message ID:', info.messageId);
-    console.log('Preview URL:', nodemailer.getTestMessageUrl(info));
-    res.status(200).json({ message: 'Email sent successfully', messageId: info.messageId });
+    // Email to user
+    const mailOptions = {
+      from: process.env.EMAIL,
+      to: email,
+      subject: `Your Resource Download from RareMinds - ${resourceTitle}`,
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #eee; border-radius: 5px;">
+          <div style="text-align: center; margin-bottom: 20px;">
+            <img src=${`https://rareminds.in/assets/RareMinds-6d5e630e.png`} alt="RareMinds Logo" style="max-width: 200px;">
+          </div>
+          <h2 style="color: #e11d48; text-align: center;">Thank you for downloading our resource!</h2>
+          <p style="color: #374151;">Dear ${name},</p>
+          <p style="color: #374151;">Thank you for your interest in ${resourceTitle}. We're excited to help you transform your educational approach.</p>
+          <p style="color: #374151;">You can download your resource using the link below:</p>
+          <p style="color: #374151;">Resource Link: <a href="${pdfUrl}" style="color: #e11d48; text-decoration: underline;">${pdfUrl}</a></p>
+          <p style="text-align: center;">
+            <a href="${pdfUrl}" style="display: inline-block; background-color: #e11d48; color: white; padding: 12px 24px; text-decoration: none; border-radius: 4px; margin: 20px 0;">Download Resource</a>
+          </p>
+          <p>Here are the details we received:</p>
+          <ul>
+            <li>Name: ${name}</li>
+            <li>Email: ${email}</li>
+            <li>Phone: ${phone}</li>
+            <li>Resource: ${resourceTitle}</li>
+          </ul>
+          <p>If you have any questions or need assistance, please don't hesitate to contact us.</p>
+          <p>Best regards,<br>The RareMinds Team</p>
+        </div>
+      `
+    };
+
+    await transporter.sendMail(mailOptions);
+    res.status(200).json({ message: 'Email sent successfully' });
   } catch (error) {
-    console.error('Detailed error:', {
-      message: error.message,
-      code: error.code,
-      command: error.command,
-      response: error.response
-    });
-    res.status(500).json({ 
-      error: error.message || 'Failed to send email',
-      code: error.code,
-      details: error.response
-    });
+    console.error('Error sending email:', error);
+    res.status(500).json({ error: 'Failed to send email' });
   }
 });
 
-const PORT = process.env.PORT || 3000;
+const PORT = 3001;
 app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
+  console.log(`Server is running on port ${PORT}`);
 });
